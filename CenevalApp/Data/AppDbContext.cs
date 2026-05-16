@@ -1,6 +1,5 @@
-﻿using CenevalApp.Models;
+using CenevalApp.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
 
 namespace CenevalApp.Data
 {
@@ -13,6 +12,8 @@ namespace CenevalApp.Data
         public DbSet<Option> Options { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserProgress> UserProgress { get; set; }
+        public DbSet<Evaluation> Evaluations { get; set; }
+        public DbSet<EvaluationDetail> EvaluationDetails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,20 +31,38 @@ namespace CenevalApp.Data
                 .WithMany(q => q.Options)
                 .HasForeignKey(o => o.QuestionId);
 
+            // Relación 1:1 entre User y UserProgress (FK: UserIdInt)
             modelBuilder.Entity<User>()
-            .HasOne(u => u.Progress)
-            .WithOne()
-            .HasForeignKey<UserProgress>(p => p.UserId);
+                .HasOne(u => u.Progress)
+                .WithOne(p => p.User)
+                .HasForeignKey<UserProgress>(p => p.UserIdInt);
 
-            // Ejecución de Semillas (Seeding)
-            SeedData(modelBuilder);
-        }
+            // Relación 1:N entre User y Evaluations
+            modelBuilder.Entity<Evaluation>()
+                .HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserIdInt);
 
-        private void SeedData(ModelBuilder modelBuilder)
-        {
-            Data.Seeds.TopicSeed.Seed(modelBuilder);
-            Data.Seeds.QuestionSeed.Seed(modelBuilder);
-            Data.Seeds.OptionSeed.Seed(modelBuilder);
+            // Relación 1:N entre Evaluation y EvaluationDetail
+            modelBuilder.Entity<EvaluationDetail>()
+                .HasOne(d => d.Evaluation)
+                .WithMany(e => e.Details)
+                .HasForeignKey(d => d.EvaluationId);
+
+            // Relación EvaluationDetail → Question (sin colección inversa)
+            modelBuilder.Entity<EvaluationDetail>()
+                .HasOne(d => d.Question)
+                .WithMany()
+                .HasForeignKey(d => d.QuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación EvaluationDetail → Option (la opción seleccionada)
+            // Usamos HasNoNavigation para evitar conflictos con Option.Question
+            modelBuilder.Entity<EvaluationDetail>()
+                .HasOne(d => d.SelectedOption)
+                .WithMany()
+                .HasForeignKey(d => d.SelectedOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
